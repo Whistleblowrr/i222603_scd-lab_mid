@@ -1,0 +1,183 @@
+version: '3.8'
+
+services:
+  # ========================================
+  # PUBLIC FACING SERVICE
+  # ========================================
+  api-gateway:
+    build: ./api-gateway
+    container_name: fastbite-gateway
+    ports:
+      - "3000:3000"
+    networks:
+      - fastbite-net
+    depends_on:
+      - menu-service
+      - order-service
+      - inventory-service
+      - customer-service
+      - payment-service
+
+  # ========================================
+  # INTERNAL MICROSERVICES (No Host Ports)
+  # ========================================
+  menu-service:
+    build: ./menu-service
+    container_name: fastbite-menu
+    expose:
+      - "3001"
+    networks:
+      - fastbite-net
+    environment:
+      - PORT=3001
+      - DB_HOST=menu-db
+      - DB_USER=fastbite
+      - DB_PASSWORD=secret
+      - DB_NAME=fastbite_menu
+    depends_on:
+      - menu-db
+
+  order-service:
+    build: ./order-service
+    container_name: fastbite-order
+    expose:
+      - "3002"
+    networks:
+      - fastbite-net
+    environment:
+      - PORT=3002
+      - DB_HOST=order-db
+      - DB_USER=fastbite
+      - DB_PASSWORD=secret
+      - DB_NAME=fastbite_orders
+      - MENU_SERVICE_URL=http://menu-service:3001
+      - INVENTORY_SERVICE_URL=http://inventory-service:3003
+      - CUSTOMER_SERVICE_URL=http://customer-service:3004
+    depends_on:
+      - order-db
+
+  inventory-service:
+    build: ./inventory-service
+    container_name: fastbite-inventory
+    expose:
+      - "3003"
+    networks:
+      - fastbite-net
+    environment:
+      - PORT=3003
+      - DB_HOST=inventory-db
+      - DB_USER=fastbite
+      - DB_PASSWORD=secret
+      - DB_NAME=fastbite_inventory
+    depends_on:
+      - inventory-db
+
+  customer-service:
+    build: ./customer-service
+    container_name: fastbite-customer
+    expose:
+      - "3004"
+    networks:
+      - fastbite-net
+    environment:
+      - PORT=3004
+      - DB_HOST=customer-db
+      - DB_USER=fastbite
+      - DB_PASSWORD=secret
+      - DB_NAME=fastbite_customers
+    depends_on:
+      - customer-db
+
+  payment-service:
+    build: ./payment-service
+    container_name: fastbite-payment
+    expose:
+      - "3005"
+    networks:
+      - fastbite-net
+    environment:
+      - PORT=3005
+      - DB_HOST=payment-db
+      - DB_USER=fastbite
+      - DB_PASSWORD=secret
+      - DB_NAME=fastbite_payments
+      - ORDER_SERVICE_URL=http://order-service:3002
+    depends_on:
+      - payment-db
+
+  # ========================================
+  # INTERNAL DATABASES (Isolated & Persistent)
+  # ========================================
+  menu-db:
+    image: postgres:15-alpine
+    container_name: db-menu
+    environment:
+      POSTGRES_USER: fastbite
+      POSTGRES_PASSWORD: secret
+      POSTGRES_DB: fastbite_menu
+    networks:
+      - fastbite-net
+    volumes:
+      - menu-data:/var/lib/postgresql/data
+
+  order-db:
+    image: postgres:15-alpine
+    container_name: db-order
+    environment:
+      POSTGRES_USER: fastbite
+      POSTGRES_PASSWORD: secret
+      POSTGRES_DB: fastbite_orders
+    networks:
+      - fastbite-net
+    volumes:
+      - order-data:/var/lib/postgresql/data
+
+  inventory-db:
+    image: postgres:15-alpine
+    container_name: db-inventory
+    environment:
+      POSTGRES_USER: fastbite
+      POSTGRES_PASSWORD: secret
+      POSTGRES_DB: fastbite_inventory
+    networks:
+      - fastbite-net
+    volumes:
+      - inventory-data:/var/lib/postgresql/data
+
+  customer-db:
+    image: postgres:15-alpine
+    container_name: db-customer
+    environment:
+      POSTGRES_USER: fastbite
+      POSTGRES_PASSWORD: secret
+      POSTGRES_DB: fastbite_customers
+    networks:
+      - fastbite-net
+    volumes:
+      - customer-data:/var/lib/postgresql/data
+
+  payment-db:
+    image: postgres:15-alpine
+    container_name: db-payment
+    environment:
+      POSTGRES_USER: fastbite
+      POSTGRES_PASSWORD: secret
+      POSTGRES_DB: fastbite_payments
+    networks:
+      - fastbite-net
+    volumes:
+      - payment-data:/var/lib/postgresql/data
+
+# ========================================
+# NETWORKS & VOLUMES CONFIGURATION
+# ========================================
+networks:
+  fastbite-net:
+    driver: bridge
+
+volumes:
+  menu-data:
+  order-data:
+  inventory-data:
+  customer-data:
+  payment-data:
